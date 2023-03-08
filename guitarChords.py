@@ -159,8 +159,13 @@ def convertToSound(notes: List[Tuple[int, int]], duration=750) -> str:
     wave = AudioSegment.silent(duration=0)
     filename = ""
 
-    # Get all the notes into sine waves
+    # Get all the frequency of the notes and sorted it by frequency
+    freqs = {}
     for note, octave in notes:
+        freqs[calculateFrequency(note, octave)] = (note, octave)
+
+    # Now, a convert each note to sound
+    for _, (note, octave) in sorted(freqs.items()):
         wave += Square(calculateFrequency(note, octave)).to_audio_segment(duration)
         filename += f"_{noteToChar(note)}{octave}"
 
@@ -171,7 +176,9 @@ def convertToSound(notes: List[Tuple[int, int]], duration=750) -> str:
     return filename[1:]+".mp3"
 
 
-def getChords(note: int, chords: List[int], fretboard_guitar_notes: List[List[int]], fretboard_notes_octave: List[List[int]]) -> List[Tuple[int, int]]:
+def getChords(note: int, chords: List[int]
+     , fretboard_guitar_notes = GUITAR_NOTES
+     , fretboard_notes_octave = OCTAVE_NOTES) -> List[Tuple[int, int]]:
     '''
     Given a note, find all the chords that contain that note
 
@@ -184,7 +191,8 @@ def getChords(note: int, chords: List[int], fretboard_guitar_notes: List[List[in
     resultChords = set()
     for s_idx, stirng in enumerate(fretboard_guitar_notes):
         for n_idx, n in enumerate(stirng):
-            if n in [note + c for c in chords]:
+            # If the note after adding the chords is higher than 12, than round it back to 0
+            if n in [(note + c) % 12 for c in chords]:
                 resultChords.add((n, fretboard_notes_octave[s_idx][n_idx]))
     return [c for c in resultChords]
 
@@ -195,17 +203,18 @@ def getMajorChords(note: int) -> List[Tuple[int, int]]:
     For example: to find all the A major chords, call majorChords(0)
     '''
     majorChord = [0,4,7]
-    return getChords(note, majorChord, GUITAR_NOTES, OCTAVE_NOTES)
+    return getChords(note, majorChord)
+
 
 def getMinorChords(note: int) -> List[Tuple[int, int]]:
     minorChord = [0,3,7]
-    return getChords(note, minorChord, GUITAR_NOTES, OCTAVE_NOTES)
+    return getChords(note, minorChord)
+
 
 if __name__ == "__main__":
     # Reverse the order of the GUITAR_NOTES list, to print the thickest string at the bottom
     guitar_notes = [GUITAR_NOTES[i] for i in range(len(GUITAR_NOTES)-1, -1, -1)]
     octave_notes = [OCTAVE_NOTES[i] for i in range(len(OCTAVE_NOTES)-1, -1, -1)]
 
-
-    aMajor = getMinorChords(0)
+    aMajor = getMajorChords(0)
     print(print_guitar_fretboard(aMajor, guitar_notes, octave_notes))

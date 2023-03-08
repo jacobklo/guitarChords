@@ -1,29 +1,42 @@
 from __future__ import annotations
 from pathlib import Path
-from typing import List
+from typing import Callable, List
 import hashlib
 import genanki
 
-from guitarChords import GUITAR_NOTES, OCTAVE_NOTES, calculateFrequency, noteToChar, print_guitar_fretboard, convertToSound
+from guitarChords import GUITAR_NOTES, OCTAVE_NOTES, getMajorChords, getMinorChords, noteToChar, print_guitar_fretboard, convertToSound
 
 
-def convertguitarNotes2Anki(notes_chars: List[str], notes_fretboard: List[str], notes_sound: List[str]):
-  my_model = MyModel('GuitarChordsModel', fields=[{'name': 'Question'}, {'name': 'Answer'}, {'name': 'Sound'}],
-  front_html=QUESTION, back_html=ANSWER, css=STYLE)
 
-  deckName = 'GuitarChords::Notes'
+def getAnkiDeck(ankiNotes: List[genanki.Note], deckName: str) -> genanki.Deck:
   my_deck = genanki.Deck(deck_id=abs(hash(deckName)) % (10 ** 10), name=deckName)
+  for n in ankiNotes:
+    my_deck.add_note(n)
+  return my_deck
 
-  for i,n in enumerate(notes_chars):
-    newNotes = genanki.Note(model=my_model, fields=[n, notes_fretboard[i], "[sound:"+notes_sound[i]+"]"], tags=[deckName])
-    my_deck.add_note(newNotes)
 
+def createAnkiPackage(decks: List[genanki.Deck]):
   audio_path = Path(r'audio').glob('**/*')
   audios = ['audio/'+x.name for x in audio_path if x.is_file()]
 
-  anki_output = genanki.Package(my_deck)
+  anki_output = genanki.Package(decks)
   anki_output.media_files = audios
-  anki_output.write_to_file('GuitarNotes.apkg')
+  anki_output.write_to_file('GuitarChords.apkg')
+
+
+def convertguitarNotesChords2AnkiNotes(notes_chars: List[str], notes_fretboard: List[str], notes_sound: List[str]) -> List[genanki.Note]:
+  model = MyModel('GuitarChordsModel', fields=[{'name': 'Question'}, {'name': 'Answer'}, {'name': 'Sound'}],
+  front_html=QUESTION, back_html=ANSWER, css=STYLE)
+  
+  ankiNotes = []
+
+  for i,n in enumerate(notes_chars):
+    newNotes = genanki.Note(model, fields=[n, notes_fretboard[i], "[sound:"+notes_sound[i]+"]"])
+    ankiNotes.append(newNotes)
+  
+  return ankiNotes
+
+
 
 
 
@@ -44,25 +57,14 @@ class MyModel(genanki.Model):
 
 
 
-QUESTION = '''
-<div class="front">{{Question}}</div>
-'''
+QUESTION = '''<div class="front">{{Question}}</div>'''
 
-
-ANSWER = '''
-<div class="back">
-{{Answer}}
-
-{{Sound}}
-</div>
-
-
-'''
-
+ANSWER = '''<div class="back">{{Answer}}{{Sound}}</div>'''
 
 STYLE = '''
 .card {
  font-family: 'DejaVu Sans Mono';
+ font-size: 14px;
  text-align: left;
  color: white;
  background-color: rgba(42, 129, 151,1);
@@ -71,22 +73,25 @@ STYLE = '''
              0px 18px 23px rgba(0,0,0,0.1);
 }
 
-.front {
-	font-size: 14px;
-}
-
-.back {
-	font-size: 14px;
-
-}
-
-div.o9Q4V2vd {
-  margin-bottom: 50px;
-}
-
-
 @font-face { font-family: DejaVu Sans Mono; src: url('_DejaVuSansMono.ttf'); }
 '''
+
+
+def _getChordsDeckHelper(chordName: str, getChordsFunc: Callable):
+  '''
+  partial function t pass getChords() and create a deck from it
+  '''
+  resultDecks = []
+  for i in range(0,12):
+    deckName = 'GuitarChords::'+chordName+'Chords::'+noteToChar(i)
+    notes = getChordsFunc(i)
+    notes_fretboard = '<pre>'+print_guitar_fretboard(notes, guitar_notes, octave_notes)+'</pre>'
+    note_chars = noteToChar(i) + ' ' + chordName
+    notes_sound = convertToSound(notes, duration=750)
+    ankiNotes = convertguitarNotesChords2AnkiNotes([note_chars], [notes_fretboard], [notes_sound])
+    resultDecks.append(getAnkiDeck(ankiNotes, deckName))
+  return resultDecks
+
 
 if __name__ == "__main__":
   # Get list of notes, thickest string to thinnest
@@ -105,5 +110,14 @@ if __name__ == "__main__":
 
   # Convert notes to sound
   notes_sound = [convertToSound(notes=[(note, octave)], duration=2000) for note, octave in notes]
-  
-  convertguitarNotes2Anki(notes_chars, notes_fretboard, notes_sound)
+
+  # Create Anki notes
+  deckName = 'GuitarChords::Notes'
+  ankiNotes = convertguitarNotesChords2AnkiNotes(notes_chars, notes_fretboard, notes_sound)
+  decks = [getAnkiDeck(ankiNotes, deckName)]
+
+  decks += _getChordsDeckHelper('Major', getMajorChords)
+  decks += _getChordsDeckHelper('Minor', getMinorChords)
+
+  createAnkiPackage(decks)
+
