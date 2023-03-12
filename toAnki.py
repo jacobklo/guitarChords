@@ -25,8 +25,7 @@ def createAnkiPackage(decks: List[genanki.Deck]):
 
 
 def convertguitarNotesChords2AnkiNotes(notes_chars: List[str], notes_fretboard: List[str], notes_sound: List[str]) -> List[genanki.Note]:
-  model = MyModel('GuitarChordsModel', fields=[{'name': 'Question'}, {'name': 'Answer'}, {'name': 'Sound'}],
-  front_html=QUESTION, back_html=ANSWER, css=STYLE)
+  model = MyModel('GuitarChordsModel', fields=[{'name': 'Question'}, {'name': 'Answer'}, {'name': 'Sound'}], css=STYLE)
   
   ankiNotes = []
 
@@ -42,39 +41,40 @@ def convertguitarNotesChords2AnkiNotes(notes_chars: List[str], notes_fretboard: 
 
 class MyModel(genanki.Model):
 
-  def __init__(self, name: str, fields: List, front_html: str, back_html: str, css: str):
+  STYLE = '''
+  .card {
+  font-family: 'DejaVu Sans Mono';
+  font-size: 14px;
+  text-align: left;
+  color: white;
+  background-color: rgba(42, 129, 151,1);
+  text-shadow: 0px 4px 3px rgba(0,0,0,0.4),
+              0px 8px 13px rgba(0,0,0,0.1),
+              0px 18px 23px rgba(0,0,0,0.1);
+  }
+
+  @font-face { font-family: DejaVu Sans Mono; src: url('_DejaVuSansMono.ttf'); }
+  '''
+
+  def __init__(self, name: str, fields: List,):
     hash_object = hashlib.sha1(name.encode('utf-8'))
     hex_dig = int(hash_object.hexdigest(), 16) % (10 ** 10)
     
     templates = [
       {
         'name': 'GuitarChordsCard',
-        'qfmt': front_html,
-        'afmt': back_html,
+        'qfmt': '<div class="front">{{Question}}</div>',
+        'afmt': '<div class="back">{{Answer}}{{Sound}}</div>',
+      },
+            {
+        'name': 'GuitarChordsSound',
+        'qfmt': '<div class="front">{{Sound}}</div>',
+        'afmt': '<div class="back">{{Question}}{{Answer}}{{Sound}}</div>',
       }
     ]
-    super(MyModel, self).__init__(model_id=hex_dig, name=name, fields=fields, templates=templates, css=css)
+    super(MyModel, self).__init__(model_id=hex_dig, name=name, fields=fields, templates=templates, css=MyModel.STYLE)
 
 
-
-QUESTION = '''<div class="front">{{Question}}</div>'''
-
-ANSWER = '''<div class="back">{{Answer}}{{Sound}}</div>'''
-
-STYLE = '''
-.card {
- font-family: 'DejaVu Sans Mono';
- font-size: 14px;
- text-align: left;
- color: white;
- background-color: rgba(42, 129, 151,1);
- text-shadow: 0px 4px 3px rgba(0,0,0,0.4),
-             0px 8px 13px rgba(0,0,0,0.1),
-             0px 18px 23px rgba(0,0,0,0.1);
-}
-
-@font-face { font-family: DejaVu Sans Mono; src: url('_DejaVuSansMono.ttf'); }
-'''
 
 
 def _getChordsDeckHelper(chordName: str, getChordsFunc: Callable):
